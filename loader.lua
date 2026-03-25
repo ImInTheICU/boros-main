@@ -1,1 +1,1 @@
-loadstring(game:HttpGetAsync(("https://raw.githubusercontent.com/ImInTheICU/boros-main/refs/heads/main/boros.lua"))()
+loadstring(game:HttpGetAsync(("https://raw.githubusercontent.com/ImInTheICU/boros-main/refs/heads/main/boros.lua" .. "?t=" .. tostring(os.time()))))()
