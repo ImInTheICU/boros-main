@@ -37,7 +37,7 @@ local MAX_PANEL_CONTENT_H = 480
 local _sndInst = Instance.new("Sound")
 _sndInst.SoundId = T.SoundId
 _sndInst.Volume  = 0.35
-_sndInst.Parent  = clonref(game:GetService("SoundService"))
+_sndInst.Parent  = cloneref(game:GetService("SoundService"))
 
 local function playSound()
     _sndInst:Stop()
