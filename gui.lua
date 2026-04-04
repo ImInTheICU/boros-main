@@ -1,4 +1,11 @@
-cloneref = cloneref or function (...) return  ... end
+ if not WYNF_OBFUSCATED then
+    WYNF_JIT             = function(fn) return fn end
+    WYNF_JIT_MAX         = function(fn) return fn end
+    WYNF_SECURE_CALLBACK = function(fn) return fn end
+    WYNF_NO_UPVALUES     = function(fn) return fn end
+end
+
+cloneref = cloneref or function(...) return ... end
 local CAS      = cloneref(game:GetService("ContextActionService"))
 local UIS      = cloneref(game:GetService("UserInputService"))
 local TweenSvc = cloneref(game:GetService("TweenService"))
@@ -34,6 +41,8 @@ local REPEAT_DELAY        = 0.35
 local REPEAT_INTERVAL     = 0.06
 local MAX_PANEL_CONTENT_H = 480
 
+local _textInputFocused = false
+
 local _sndInst = Instance.new("Sound")
 _sndInst.SoundId = T.SoundId
 _sndInst.Volume  = 0.35
@@ -68,9 +77,9 @@ end
 local function Corner(parent, radius)
     New("UICorner", { CornerRadius = UDim.new(0, radius or 4), Parent = parent })
 end
-local function Tw(inst, props)
+local Tw = WYNF_JIT(function(inst, props)
     TweenSvc:Create(inst, T.TI, props):Play()
-end
+end)
 local function MakeAccentBar(parent)
     return New("Frame", {
         Size             = UDim2.new(0, 3, 1, 0),
@@ -186,9 +195,9 @@ function Toggle:_sync()
         BackgroundColor3 = on and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(210, 210, 215),
     })
 end
-function Toggle:Enable()     self.Value = true  ; self:_sync() ; self.Used:Fire(true)  end
-function Toggle:Disable()    self.Value = false ; self:_sync() ; self.Used:Fire(false) end
-function Toggle:Use()        playSound() ; if self.Value then self:Disable() else self:Enable() end end
+function Toggle:Enable()      self.Value = true  ; self:_sync() ; self.Used:Fire(true)  end
+function Toggle:Disable()     self.Value = false ; self:_sync() ; self.Used:Fire(false) end
+function Toggle:Use()         playSound() ; if self.Value then self:Disable() else self:Enable() end end
 function Toggle:UpdateState() self:_sync() end
 function Toggle:SetSelected(v)
     self._bar.Visible    = v
@@ -246,10 +255,7 @@ function Slider.new(parent, settings)
         Parent           = frame,
     })
     Corner(track, 3)
-
-    if grad then
-        grad.Parent = track
-    end
+    if grad then grad.Parent = track end
 
     local fill = nil
     if not grad then
@@ -277,22 +283,22 @@ function Slider.new(parent, settings)
     end
 
     local self = setmetatable({
-        Name         = name,
-        Value        = val,
-        MinValue     = minV,
-        MaxValue     = maxV,
-        Step         = step,
-        HasGradient  = grad ~= nil,
-        Object       = frame,
-        _bar         = bar,
-        _fill        = fill,
-        _knob        = knob,
-        _valLbl      = valLbl,
-        InUse        = false,
-        _leftDown    = false,
-        _rightDown   = false,
-        _repeatThread= nil,
-        ValueChanged = Signal.new(),
+        Name          = name,
+        Value         = val,
+        MinValue      = minV,
+        MaxValue      = maxV,
+        Step          = step,
+        HasGradient   = grad ~= nil,
+        Object        = frame,
+        _bar          = bar,
+        _fill         = fill,
+        _knob         = knob,
+        _valLbl       = valLbl,
+        InUse         = false,
+        _leftDown     = false,
+        _rightDown    = false,
+        _repeatThread = nil,
+        ValueChanged  = Signal.new(),
     }, Slider)
     self:_sync()
     return self
@@ -300,9 +306,7 @@ end
 function Slider:_sync()
     local t = (self.Value - self.MinValue) / math.max(self.MaxValue - self.MinValue, 1)
     self._valLbl.Text = tostring(self.Value)
-    if self._fill then
-        Tw(self._fill, { Size = UDim2.new(t, 0, 1, 0) })
-    end
+    if self._fill then Tw(self._fill, { Size = UDim2.new(t, 0, 1, 0) }) end
     Tw(self._knob, { Position = UDim2.new(t, 0, 0.5, 0) })
 end
 function Slider:SetValue(v)
@@ -320,19 +324,14 @@ function Slider:SetSelected(v)
     if not v then self._bar.BackgroundColor3 = T.Accent end
 end
 function Slider:_startRepeat()
-    if self._repeatThread then
-        task.cancel(self._repeatThread)
-        self._repeatThread = nil
-    end
+    if self._repeatThread then task.cancel(self._repeatThread) ; self._repeatThread = nil end
     self._repeatThread = task.spawn(function()
         task.wait(REPEAT_DELAY)
         while self.InUse do
             if self._leftDown then
-                self:SetValue(self.Value - self.Step)
-                playSound()
+                self:SetValue(self.Value - self.Step) ; playSound()
             elseif self._rightDown then
-                self:SetValue(self.Value + self.Step)
-                playSound()
+                self:SetValue(self.Value + self.Step) ; playSound()
             else
                 break
             end
@@ -348,9 +347,7 @@ function Slider:CaptureFocus()
     self._rightDown = false
     self._bar.Visible          = true
     self._bar.BackgroundColor3 = Color3.fromRGB(70, 150, 255)
-    if self._fill then
-        Tw(self._fill, { BackgroundColor3 = Color3.fromRGB(70, 150, 255) })
-    end
+    if self._fill then Tw(self._fill, { BackgroundColor3 = Color3.fromRGB(70, 150, 255) }) end
     Tw(self._knob, { BackgroundColor3 = Color3.fromRGB(70, 150, 255) })
 
     local function onStep(action, state)
@@ -362,10 +359,7 @@ function Slider:CaptureFocus()
         elseif state == Enum.UserInputState.End then
             if action == "sLeft" then self._leftDown = false else self._rightDown = false end
             if not self._leftDown and not self._rightDown then
-                if self._repeatThread then
-                    task.cancel(self._repeatThread)
-                    self._repeatThread = nil
-                end
+                if self._repeatThread then task.cancel(self._repeatThread) ; self._repeatThread = nil end
             end
         end
         return Enum.ContextActionResult.Sink
@@ -385,14 +379,9 @@ function Slider:ReleaseFocus()
     self.InUse      = false
     self._leftDown  = false
     self._rightDown = false
-    if self._repeatThread then
-        task.cancel(self._repeatThread)
-        self._repeatThread = nil
-    end
+    if self._repeatThread then task.cancel(self._repeatThread) ; self._repeatThread = nil end
     self._bar.BackgroundColor3 = T.Accent
-    if self._fill then
-        Tw(self._fill, { BackgroundColor3 = T.Accent })
-    end
+    if self._fill then Tw(self._fill, { BackgroundColor3 = T.Accent }) end
     Tw(self._knob, { BackgroundColor3 = Color3.fromRGB(240, 240, 240) })
     CAS:UnbindAction("sLeft")
     CAS:UnbindAction("sRight")
@@ -402,18 +391,99 @@ function Slider:Use()
     if self.InUse then self:ReleaseFocus() else self:CaptureFocus() end
 end
 
+local TextInput = {}
+TextInput.__index = TextInput
+TextInput.Type    = "TextInput"
+function TextInput.new(parent, name, settings)
+    settings = settings or {}
+    local placeholder = settings.Placeholder or "Type here..."
+    local default     = settings.Default     or ""
+
+    local frame = New("Frame", {
+        Size             = UDim2.new(1, 0, 0, T.ItemH),
+        BackgroundColor3 = T.Item,
+        BorderSizePixel  = 0,
+        Parent           = parent,
+    })
+    local bar = MakeAccentBar(frame)
+    New("TextLabel", {
+        Size                   = UDim2.new(0, 72, 1, 0),
+        Position               = UDim2.new(0, 12, 0, 0),
+        BackgroundTransparency = 1,
+        Text                   = name,
+        Font                   = T.Font,
+        TextSize               = T.FS,
+        TextColor3             = T.TextDim,
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        Parent                 = frame,
+    })
+    local box = New("TextBox", {
+        Size              = UDim2.new(1, -90, 1, -8),
+        Position          = UDim2.new(0, 84, 0, 4),
+        BackgroundColor3  = T.Track,
+        BorderSizePixel   = 0,
+        Text              = default,
+        PlaceholderText   = placeholder,
+        Font              = T.FontLight,
+        TextSize          = T.FS - 1,
+        TextColor3        = T.Text,
+        PlaceholderColor3 = T.TextMuted,
+        TextXAlignment    = Enum.TextXAlignment.Left,
+        ClearTextOnFocus  = false,
+        Parent            = frame,
+    })
+    New("UIPadding", { PaddingLeft = UDim.new(0, 6), Parent = box })
+    Corner(box, 3)
+
+    local self = setmetatable({
+        Name         = name,
+        Value        = default,
+        Object       = frame,
+        _bar         = bar,
+        _box         = box,
+        _focused     = false,
+        ValueChanged = Signal.new(),
+    }, TextInput)
+
+    box.Focused:Connect(WYNF_SECURE_CALLBACK(function()
+        self._focused     = true
+        _textInputFocused = true
+        Tw(box, { BackgroundColor3 = Color3.fromRGB(45, 45, 60) })
+    end))
+    box.FocusLost:Connect(WYNF_SECURE_CALLBACK(function(enterPressed)
+        self._focused     = false
+        _textInputFocused = false
+        self.Value        = box.Text
+        Tw(box, { BackgroundColor3 = T.Track })
+        self.ValueChanged:Fire(box.Text, enterPressed)
+    end))
+
+    return self
+end
+function TextInput:SetValue(v)
+    self.Value     = tostring(v)
+    self._box.Text = self.Value
+end
+function TextInput:Use()
+    self._box:CaptureFocus()
+end
+function TextInput:SetSelected(v)
+    self._bar.Visible = v
+    Tw(self.Object, { BackgroundColor3 = v and T.ItemSel or T.Item })
+end
+
 local ColorPicker = {}
 ColorPicker.__index = ColorPicker
 ColorPicker.Type    = "ColorPicker"
 
 local HUE_SEQ = ColorSequence.new({
-    ColorSequenceKeypoint.new(0,      Color3.fromHSV(0,     1, 1)),
-    ColorSequenceKeypoint.new(1/6,    Color3.fromHSV(1/6,   1, 1)),
-    ColorSequenceKeypoint.new(2/6,    Color3.fromHSV(2/6,   1, 1)),
-    ColorSequenceKeypoint.new(3/6,    Color3.fromHSV(3/6,   1, 1)),
-    ColorSequenceKeypoint.new(4/6,    Color3.fromHSV(4/6,   1, 1)),
-    ColorSequenceKeypoint.new(5/6,    Color3.fromHSV(5/6,   1, 1)),
-    ColorSequenceKeypoint.new(1,      Color3.fromHSV(1,     1, 1)),
+    ColorSequenceKeypoint.new(0,   Color3.fromHSV(0,   1, 1)),
+    ColorSequenceKeypoint.new(1/6, Color3.fromHSV(1/6, 1, 1)),
+    ColorSequenceKeypoint.new(2/6, Color3.fromHSV(2/6, 1, 1)),
+    ColorSequenceKeypoint.new(3/6, Color3.fromHSV(3/6, 1, 1)),
+    ColorSequenceKeypoint.new(4/6, Color3.fromHSV(4/6, 1, 1)),
+    ColorSequenceKeypoint.new(5/6, Color3.fromHSV(5/6, 1, 1)),
+    ColorSequenceKeypoint.new(1,   Color3.fromHSV(1,   1, 1)),
 })
 
 function ColorPicker.new(parent, name, settings)
@@ -431,8 +501,7 @@ function ColorPicker.new(parent, name, settings)
         BorderSizePixel  = 0,
         Parent           = parent,
     })
-    local bar = MakeAccentBar(frame)
-
+    local bar    = MakeAccentBar(frame)
     local header = New("Frame", {
         Size                   = UDim2.new(1, 0, 0, T.ItemH),
         BackgroundTransparency = 1,
@@ -470,7 +539,6 @@ function ColorPicker.new(parent, name, settings)
         TextXAlignment         = Enum.TextXAlignment.Center,
         Parent                 = header,
     })
-
     local childFrame = New("Frame", {
         Size                   = UDim2.new(1, 0, 0, 0),
         AutomaticSize          = Enum.AutomaticSize.Y,
@@ -486,14 +554,13 @@ function ColorPicker.new(parent, name, settings)
     })
     New("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingBottom = UDim.new(0, 4), Parent = childFrame })
 
-    local hueGrad = Instance.new("UIGradient")
-    hueGrad.Color = HUE_SEQ
+    local hueGrad = Instance.new("UIGradient") ; hueGrad.Color = HUE_SEQ
     local satGrad = Instance.new("UIGradient")
     local valGrad = Instance.new("UIGradient")
 
-    local hSlider = Slider.new(childFrame, { Name = "Hue", MinValue = 0, MaxValue = 360, Value = h0, Step = 1,   Gradient = hueGrad })
-    local sSlider = Slider.new(childFrame, { Name = "Sat", MinValue = 0, MaxValue = 100, Value = s0, Step = 1,   Gradient = satGrad })
-    local vSlider = Slider.new(childFrame, { Name = "Val", MinValue = 0, MaxValue = 100, Value = v0, Step = 1,   Gradient = valGrad })
+    local hSlider = Slider.new(childFrame, { Name = "Hue", MinValue = 0, MaxValue = 360, Value = h0, Step = 1, Gradient = hueGrad })
+    local sSlider = Slider.new(childFrame, { Name = "Sat", MinValue = 0, MaxValue = 100, Value = s0, Step = 1, Gradient = satGrad })
+    local vSlider = Slider.new(childFrame, { Name = "Val", MinValue = 0, MaxValue = 100, Value = v0, Step = 1, Gradient = valGrad })
 
     local self = setmetatable({
         Name         = name,
@@ -522,7 +589,7 @@ function ColorPicker.new(parent, name, settings)
 
     local function onChange()
         local c = Color3.fromHSV(self.H / 360, self.S / 100, self.V / 100)
-        self.Color = c
+        self.Color                    = c
         self._swatch.BackgroundColor3 = c
         self:_updateGradients()
         self.ColorChanged:Fire(c)
@@ -534,13 +601,12 @@ function ColorPicker.new(parent, name, settings)
 
     return self
 end
-
 function ColorPicker:_updateGradients()
-    local h  = self.H / 360
-    local v  = math.max(self.V / 100, 0.35)
-    local s  = math.max(self.S / 100, 0.4)
-    self._satGrad.Color = ColorSequence.new(Color3.fromHSV(h, 0, v),  Color3.fromHSV(h, 1, v))
-    self._valGrad.Color = ColorSequence.new(Color3.fromRGB(0, 0, 0),  Color3.fromHSV(h, s, 1))
+    local h = self.H / 360
+    local v = math.max(self.V / 100, 0.35)
+    local s = math.max(self.S / 100, 0.4)
+    self._satGrad.Color = ColorSequence.new(Color3.fromHSV(h, 0, v), Color3.fromHSV(h, 1, v))
+    self._valGrad.Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromHSV(h, s, 1))
 end
 function ColorPicker:Open()
     self.IsOpen            = true
@@ -561,9 +627,7 @@ function ColorPicker:Close()
     Tw(self.Object, { BackgroundColor3 = T.Item })
     self._lbl.TextColor3   = T.TextDim
 end
-function ColorPicker:Toggle()
-    if self.IsOpen then self:Close() else self:Open() end
-end
+function ColorPicker:Toggle() if self.IsOpen then self:Close() else self:Open() end end
 function ColorPicker:Use()
     for _, sibling in ipairs(self.Parent.Children) do
         if sibling ~= self and (sibling.Type == "Tab" or sibling.Type == "ColorPicker") and sibling.IsOpen then
@@ -584,9 +648,9 @@ Dropdown.__index = Dropdown
 Dropdown.Type    = "Dropdown"
 
 function Dropdown.new(parent, name, settings)
-    settings     = settings or {}
-    local values = settings.Values       or {}
-    local multi = settings.MultiSelect == true
+    settings      = settings or {}
+    local values  = settings.Values       or {}
+    local multi   = settings.MultiSelect  == true
     local default = settings.DefaultValue
 
     local frame = New("Frame", {
@@ -597,8 +661,7 @@ function Dropdown.new(parent, name, settings)
         Parent           = parent,
         ClipsDescendants = false,
     })
-    local bar = MakeAccentBar(frame)
-
+    local bar    = MakeAccentBar(frame)
     local header = New("Frame", {
         Size                   = UDim2.new(1, 0, 0, T.ItemH),
         BackgroundTransparency = 1,
@@ -628,7 +691,6 @@ function Dropdown.new(parent, name, settings)
         TextXAlignment         = Enum.TextXAlignment.Center,
         Parent                 = header,
     })
-
     local optFrame = New("Frame", {
         Size                   = UDim2.new(1, 0, 0, 0),
         Position               = UDim2.new(0, 0, 0, T.ItemH),
@@ -671,14 +733,22 @@ function Dropdown.new(parent, name, settings)
         self.Selected[tostring(values[1])] = true
     end
 
+    self:_buildOptions(values)
+    return self
+end
+function Dropdown:_buildOptions(values)
+    for _, item in ipairs(self.OptionItems) do
+        pcall(function() item.frame:Destroy() end)
+    end
+    self.OptionItems = {}
     for _, v in ipairs(values) do
         local vStr = tostring(v)
         local isOn = self.Selected[vStr] == true
-        local row = New("Frame", {
+        local row  = New("Frame", {
             Size             = UDim2.new(1, 0, 0, T.ItemH),
             BackgroundColor3 = isOn and T.ItemCheck or T.Item,
             BorderSizePixel  = 0,
-            Parent           = optFrame,
+            Parent           = self._optFrame,
         })
         local check = New("Frame", {
             Size             = UDim2.new(0, 6, 0, 6),
@@ -702,10 +772,13 @@ function Dropdown.new(parent, name, settings)
         })
         table.insert(self.OptionItems, { value = vStr, frame = row, check = check, lbl = rowLbl })
     end
-
-    return self
 end
-
+function Dropdown:SetValues(values)
+    self.Selected    = {}
+    self.SelectedIdx = 1
+    if self.IsOpen then self:Close() end
+    self:_buildOptions(values)
+end
 function Dropdown:_syncRow(item)
     local on = self.Selected[item.value] == true
     Tw(item.frame, { BackgroundColor3 = on and T.ItemCheck or T.Item })
@@ -744,8 +817,7 @@ function Dropdown:Close()
 end
 function Dropdown:_highlightOption()
     for i, item in ipairs(self.OptionItems) do
-        local cursor = (i == self.SelectedIdx)
-        if cursor then
+        if i == self.SelectedIdx then
             Tw(item.frame, { BackgroundColor3 = T.ItemSel })
             item.lbl.TextColor3 = T.Accent
         else
@@ -756,7 +828,7 @@ end
 function Dropdown:NavigateOptions(dir)
     self.SelectedIdx = self.SelectedIdx + dir
     if self.SelectedIdx < 1                 then self.SelectedIdx = #self.OptionItems end
-    if self.SelectedIdx > #self.OptionItems then self.SelectedIdx = 1                end
+    if self.SelectedIdx > #self.OptionItems then self.SelectedIdx = 1                 end
     self:_highlightOption()
 end
 function Dropdown:SelectCurrent()
@@ -790,9 +862,8 @@ function KeyBind.new(parent, name, settings)
         BorderSizePixel  = 0,
         Parent           = parent,
     })
-    local bar = MakeAccentBar(frame)
-
-    local lbl = New("TextLabel", {
+    local bar      = MakeAccentBar(frame)
+    local lbl      = New("TextLabel", {
         Size                   = UDim2.new(1, -148, 1, 0),
         Position               = UDim2.new(0, 12, 0, 0),
         BackgroundTransparency = 1,
@@ -865,7 +936,6 @@ function KeyBind.new(parent, name, settings)
         ModeChanged  = Signal.new(),
     }, KeyBind)
 end
-
 function KeyBind:_updateKeyDisplay()
     if self.BoundKey then
         self._keyLbl.Text       = self.BoundKey.Name
@@ -876,9 +946,9 @@ function KeyBind:_updateKeyDisplay()
     end
 end
 function KeyBind:CycleMode()
-    self._modeIdx = (self._modeIdx % #KB_MODES) + 1
-    self.Mode     = KB_MODES[self._modeIdx]
-    self.Toggled  = false
+    self._modeIdx      = (self._modeIdx % #KB_MODES) + 1
+    self.Mode          = KB_MODES[self._modeIdx]
+    self.Toggled       = false
     self._modeLbl.Text = self.Mode
     Tw(self._modePill, { BackgroundColor3 = T.ItemSel })
     task.delay(0.3, function()
@@ -890,7 +960,7 @@ function KeyBind:CycleMode()
 end
 function KeyBind:StartListening()
     if self._listening then return end
-    self._listening = true
+    self._listening         = true
     self._keyLbl.Text       = "press key..."
     self._keyLbl.TextColor3 = Color3.fromRGB(255, 200, 50)
     Tw(self._keyPill, { BackgroundColor3 = Color3.fromRGB(50, 45, 20) })
@@ -902,10 +972,7 @@ function KeyBind:StartListening()
         local function finish(input)
             if not self._listening then return end
             self._listening = false
-            if self._listenConn then
-                self._listenConn:Disconnect()
-                self._listenConn = nil
-            end
+            if self._listenConn then self._listenConn:Disconnect() ; self._listenConn = nil end
             Tw(self._keyPill, { BackgroundColor3 = T.Track })
             if input then
                 if input.KeyCode ~= Enum.KeyCode.Unknown then
@@ -922,7 +989,7 @@ function KeyBind:StartListening()
             end
         end
 
-        self._listenConn = UIS.InputBegan:Connect(function(inp, _gpe)
+        self._listenConn = UIS.InputBegan:Connect(WYNF_SECURE_CALLBACK(function(inp, _gpe)
             if inp.KeyCode == Enum.KeyCode.Escape then
                 finish(nil)
             elseif inp.UserInputType == Enum.UserInputType.Keyboard
@@ -933,7 +1000,7 @@ function KeyBind:StartListening()
                 playSound()
                 finish(inp)
             end
-        end)
+        end))
     end)
 end
 function KeyBind:IsActive()
@@ -952,15 +1019,10 @@ function KeyBind:IsActive()
 end
 function KeyBind:HandleInput(input)
     if self.Mode ~= "Toggle" or not self.BoundKey then return end
-    local match = false
-    if self.BoundKeyType == "keyboard" then
-        match = input.KeyCode == self.BoundKey
-    else
-        match = input.UserInputType == self.BoundKey
-    end
-    if match then
-        self.Toggled = not self.Toggled
-    end
+    local match = self.BoundKeyType == "keyboard"
+        and input.KeyCode == self.BoundKey
+        or  input.UserInputType == self.BoundKey
+    if match then self.Toggled = not self.Toggled end
 end
 function KeyBind:Use()
     playSound()
@@ -986,10 +1048,11 @@ function Tab:Open()
 end
 function Tab:Close()
     for _, child in ipairs(self.Children) do
-        if child.Type == "Tab" or child.Type == "ColorPicker" then child:Close() end
-        if child.Type == "Dropdown" and child.IsOpen  then child:Close() end
-        if child.Type == "Slider"   and child.InUse   then child:ReleaseFocus() end
-        if child.Type == "KeyBind"  and child._listening then
+        if child.Type == "Tab" or child.Type == "ColorPicker"    then child:Close() end
+        if child.Type == "Dropdown"  and child.IsOpen            then child:Close() end
+        if child.Type == "Slider"    and child.InUse             then child:ReleaseFocus() end
+        if child.Type == "TextInput" and child._focused          then child._box:ReleaseFocus() end
+        if child.Type == "KeyBind"   and child._listening        then
             child._listening = false
             if child._listenConn then child._listenConn:Disconnect() ; child._listenConn = nil end
             child:_updateKeyDisplay()
@@ -1001,9 +1064,7 @@ function Tab:Close()
     Tw(self._arrow, { TextColor3 = T.TextMuted })
     self.Object.Label.TextColor3 = T.TextDim
 end
-function Tab:Toggle()
-    if self.IsOpen then self:Close() else self:Open() end
-end
+function Tab:Toggle() if self.IsOpen then self:Close() else self:Open() end end
 function Tab:Use()
     for _, sibling in ipairs(self.Parent.Children) do
         if sibling ~= self and (sibling.Type == "Tab" or sibling.Type == "ColorPicker") and sibling.IsOpen then
@@ -1030,8 +1091,7 @@ function Container:AddButton(name)
     return b
 end
 function Container:AddToggle(name, settings)
-    settings = settings or {}
-    local tog = Toggle.new(self.ListFrame, name, settings.Value)
+    local tog = Toggle.new(self.ListFrame, name, (settings or {}).Value)
     table.insert(self.Children, tog)
     return tog
 end
@@ -1041,8 +1101,7 @@ function Container:AddSlider(settings)
     return s
 end
 function Container:AddDropdown(name, settings)
-    settings = settings or {}
-    local dd = Dropdown.new(self.ListFrame, name, settings)
+    local dd = Dropdown.new(self.ListFrame, name, settings or {})
     dd._parentList = self
     table.insert(self.Children, dd)
     return dd
@@ -1057,6 +1116,11 @@ function Container:AddColorPicker(name, settings)
     cp.Parent = self
     table.insert(self.Children, cp)
     return cp
+end
+function Container:AddTextInput(name, settings)
+    local ti = TextInput.new(self.ListFrame, name, settings or {})
+    table.insert(self.Children, ti)
+    return ti
 end
 function Container:AddTab(name)
     local headerFrame = New("Frame", {
@@ -1130,9 +1194,9 @@ Menu.__index = Menu
 
 function Menu.new(settings)
     settings    = settings or {}
-    local title = settings.Title     or "Menu"
-    local sub   = settings.Subtitle  or ""
-    local key   = settings.ToggleKey or Enum.KeyCode.Semicolon
+    local title = settings.Title      or "Menu"
+    local sub   = settings.Subtitle   or ""
+    local key   = settings.ToggleKey  or Enum.KeyCode.Semicolon
     local color = settings.AccentColor
     if color then T.Accent = color end
 
@@ -1226,19 +1290,18 @@ function Menu.new(settings)
     })
 
     local listScroll = New("ScrollingFrame", {
-        Name                  = "ListScroll",
-        Size                  = UDim2.new(1, 0, 0, 0),
-        CanvasSize            = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize   = Enum.AutomaticSize.Y,
-        ScrollBarThickness    = 3,
-        ScrollBarImageColor3  = T.Accent,
-        ScrollingDirection    = Enum.ScrollingDirection.Y,
-        BackgroundTransparency= 1,
-        BorderSizePixel       = 0,
-        LayoutOrder           = 1,
-        Parent                = panel,
+        Name                   = "ListScroll",
+        Size                   = UDim2.new(1, 0, 0, 0),
+        CanvasSize             = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize    = Enum.AutomaticSize.Y,
+        ScrollBarThickness     = 3,
+        ScrollBarImageColor3   = T.Accent,
+        ScrollingDirection     = Enum.ScrollingDirection.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel        = 0,
+        LayoutOrder            = 1,
+        Parent                 = panel,
     })
-
     local listFrame = New("Frame", {
         Name                   = "List",
         Size                   = UDim2.new(1, 0, 0, 0),
@@ -1281,18 +1344,17 @@ function Menu.new(settings)
     })
 
     local self = setmetatable({
-        Title        = title,
-        Type         = "Menu",
-        SelectedIdx  = 1,
-        Children     = {},
-        ListFrame    = listFrame,
-        Panel        = panel,
-        ScreenGui    = sg,
-        _listScroll  = listScroll,
-        Visible      = true,
-        _inside      = nil,
-        _inDropdown  = false,
-        _toggleKey   = key,
+        Title       = title,
+        Type        = "Menu",
+        SelectedIdx = 1,
+        Children    = {},
+        ListFrame   = listFrame,
+        Panel       = panel,
+        ScreenGui   = sg,
+        _listScroll = listScroll,
+        Visible     = true,
+        _inside     = nil,
+        _toggleKey  = key,
     }, Menu)
 
     local function updatePanelHeight()
@@ -1304,14 +1366,13 @@ function Menu.new(settings)
 
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updatePanelHeight)
     task.defer(updatePanelHeight)
-
     self:_bindKeys(key)
     task.defer(function() self:_updateHighlight() end)
     return self
 end
 
-function Menu:_list()   return self._inside or self end
-function Menu:_sel()    local l = self:_list() ; return l.Children[l.SelectedIdx] end
+function Menu:_list() return self._inside or self end
+function Menu:_sel()  local l = self:_list() ; return l.Children[l.SelectedIdx] end
 function Menu:_updateHighlight()
     local l = self:_list()
     if l.SelectedIdx < 1           then l.SelectedIdx = #l.Children end
@@ -1322,7 +1383,7 @@ function Menu:_updateHighlight()
     local sel = l.Children[l.SelectedIdx]
     if sel and sel.Object and self._listScroll then
         task.defer(function()
-            local obj    = sel.Object
+            local obj = sel.Object
             if not obj or not obj.Parent then return end
             local scroll = self._listScroll
             local relY   = obj.AbsolutePosition.Y - scroll.AbsolutePosition.Y + scroll.CanvasPosition.Y
@@ -1351,13 +1412,12 @@ function Menu:_enterTab()
     if item.Type == "Tab" or item.Type == "ColorPicker" then
         if not item.IsOpen then item:Open() end
         if #item.Children > 0 then
-            self._inside = item
-            item.SelectedIdx = 1
+            self._inside         = item
+            item.SelectedIdx     = 1
             self:_updateHighlight()
         end
     elseif item.Type == "KeyBind" then
-        playSound()
-        item:CycleMode()
+        playSound() ; item:CycleMode()
     end
 end
 function Menu:_leaveTab()
@@ -1378,14 +1438,12 @@ function Menu:_use()
     if item.Type == "Tab" or item.Type == "ColorPicker" then
         if not item.IsOpen then item:Open() end
         if #item.Children > 0 then
-            self._inside = item
+            self._inside     = item
             item.SelectedIdx = 1
             self:_updateHighlight()
         end
     elseif item.Type == "Dropdown" then
         if item.IsOpen then item:SelectCurrent() else item:Use() end
-    elseif item.Type == "KeyBind" then
-        item:Use()
     else
         item:Use()
     end
@@ -1404,12 +1462,12 @@ function Menu:SetVisibility(v)
 end
 function Menu:SetToggleKey(k)
     pcall(function() CAS:UnbindAction("tgToggle") end)
-    CAS:BindActionAtPriority("tgToggle", function(_, s)
+    CAS:BindActionAtPriority("tgToggle", WYNF_SECURE_CALLBACK(function(_, s)
         if s == Enum.UserInputState.Begin then
             playSound()
             self:SetVisibility(not self.Visible)
         end
-    end, false, Enum.ContextActionPriority.High.Value + 1, k)
+    end), false, Enum.ContextActionPriority.High.Value + 1, k)
 end
 function Menu:SetColor(c3) T.Accent = c3 end
 function Menu:Cleanup()
@@ -1420,12 +1478,13 @@ function Menu:Cleanup()
 end
 function Menu:_bindKeys(toggleKey)
     local pri = Enum.ContextActionPriority.High.Value + 1
-    local function onInput(action, state)
+    local onInput = WYNF_SECURE_CALLBACK(function(action, state)
         if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
-        if not self.Visible then return Enum.ContextActionResult.Pass end
+        if not self.Visible                   then return Enum.ContextActionResult.Pass end
+        if _textInputFocused                  then return Enum.ContextActionResult.Pass end
         local sel = self:_sel()
-        if sel and sel.Type == "Slider"  and sel.InUse      then return Enum.ContextActionResult.Pass end
-        if sel and sel.Type == "KeyBind" and sel._listening  then return Enum.ContextActionResult.Pass end
+        if sel and sel.Type == "Slider"  and sel.InUse     then return Enum.ContextActionResult.Pass end
+        if sel and sel.Type == "KeyBind" and sel._listening then return Enum.ContextActionResult.Pass end
         if     action == "tgUp"    then self:_navigate(-1)
         elseif action == "tgDown"  then self:_navigate( 1)
         elseif action == "tgRight" then self:_enterTab()
@@ -1433,7 +1492,7 @@ function Menu:_bindKeys(toggleKey)
         elseif action == "tgUse"   then self:_use()
         end
         return Enum.ContextActionResult.Sink
-    end
+    end)
     CAS:BindActionAtPriority("tgUp",    onInput, false, pri, Enum.KeyCode.Up)
     CAS:BindActionAtPriority("tgDown",  onInput, false, pri, Enum.KeyCode.Down)
     CAS:BindActionAtPriority("tgRight", onInput, false, pri, Enum.KeyCode.Right)
@@ -1444,5 +1503,5 @@ end
 
 for k, v in pairs(Container) do Menu[k] = v end
 
-_G.development_base = Menu
+getgenv().development_base = Menu
 return Menu
